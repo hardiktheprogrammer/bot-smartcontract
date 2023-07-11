@@ -1,41 +1,54 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface PancakeSwap {
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-}
+import "./Interface/IUniswapV2Migrator.sol";
+import "./Interface/IUniswapV1Exchange.sol";
+import "./Interface/IUniswapV1Factory.sol";
 
-contract PancakeSwapFrontrunningBot {
-    address private constant PANCAKESWAP_ROUTER_ADDRESS = 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4; // Replace with the actual PancakeSwap Router address
-    address private constant TOKEN_A_ADDRESS = 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2; // Replace with the actual token A address
-    address private constant TOKEN_B_ADDRESS = 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db; // Replace with the actual token B address
-    address private constant RECIPIENT_ADDRESS = 0x78731D3Ca6b7E34aC0F824c42a7cC18A495cabaB; // Replace with the recipient address
-    
-    PancakeSwap private pancakeSwapRouter;
-    
+contract PancakefrontBot {
+
+    address payable owner;
+
+    event frontrunningdetected(
+        address sender,
+        uint256 amount,
+        string token,
+        uint256 gasPrice
+    );
+
     constructor() {
-        pancakeSwapRouter = PancakeSwap(PANCAKESWAP_ROUTER_ADDRESS);
+        owner = msg.sender;
     }
-    
-    function executeTrade(uint amountIn, uint amountOutMin) external {
-        address[] memory path = new address[](2);
-        path[0] = TOKEN_A_ADDRESS;
-        path[1] = TOKEN_B_ADDRESS;
-        
-        uint deadline = block.timestamp + 3600; // Set the deadline to an hour from now
-        
-        pancakeSwapRouter.swapExactTokensForTokens(
-            amountIn,
-            amountOutMin,
-            path,
-            RECIPIENT_ADDRESS,
-            deadline
-        );
+
+    function detectbot() public {
+
+        uint256[] Transactionpending  = pancakeSwap.Transactionpending();
+
+        for (uint256 i = 0; i < Transactionpending.length; i++) {
+            
+
+            Transaction memory Transactionpending = PancakeSwap.getTransaction(Transactionpending[i]);
+            if (Transactionpending.sender != msg.sender && Transactionpending.gasPrice > msg.gasPrice) {
+
+               executeTrade(Transactionpending.sender, Transactionpending.amount, Transactionpending.token, Transactionpending.gasPrice);
+
+          }  // If a frontrunning opportunity is found, execute the trade.
     }
+
+    function executeTrade(
+        address sender,
+        uint256 amount,
+        string token,
+        uint256 gasPrice
+    ) public {
+        // Execute the trade on PancakeSwap.
+        PancakeSwap.swap(amount,trade,gasPrice);
+        // Emit a frontrunning event.
+        emit frontrunningdetected(sender, amount, token, gasPrice);
+    }
+
+    function setOwner(address newOwner) public {
+        require(msg.sender == owner, "Only the owner can set the new owner");
+        owner = newOwner;
+    }
+
 }
